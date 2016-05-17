@@ -8,9 +8,6 @@ import java.sql.SQLTimeoutException;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.mysql.jdbc.Driver;
-
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.BasicOutputCollector;
 import backtype.storm.topology.IBasicBolt;
@@ -70,7 +67,7 @@ public class StoreBolt implements IBasicBolt{
 		} catch (ClassNotFoundException e) {
 			e.printStackTrace();
 		} catch (SQLException e) {
-			System.err.println("get connetction error");
+			LOG.error("get connetction error");
 			e.printStackTrace();
 		}
 	}

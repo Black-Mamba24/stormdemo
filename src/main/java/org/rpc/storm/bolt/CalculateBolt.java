@@ -6,10 +6,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.BasicOutputCollector;
 import backtype.storm.topology.IBasicBolt;
@@ -17,8 +15,6 @@ import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
-
-import org.apache.hadoop.yarn.api.records.ContainerReport;
 import org.rpc.constants.Constants;
 import org.rpc.object.OneCall;
 import org.rpc.object.OneTrace;
@@ -63,12 +59,9 @@ public class CalculateBolt implements IBasicBolt{
 				oneTrace.addServices(call.getService_name());
 				if(completed(oneTrace, oneTrace.getCallList().size(), oneTrace.getApp_num())){
 					oneTrace.setConpleted(true);
-					LOG.info("ready to calculate "+oneTrace.toString());
 					computeTime(oneTrace);
-					LOG.info("after calculate "+oneTrace.toString());
 					collector.emit(new Values(oneTrace));
 					current.remove(trace_id);
-					LOG.info("calculate & emit done ");
 				}
 			} else if(backup.containsKey(trace_id)){
 				WeakReference<OneTrace> weakOneTrace = backup.get(trace_id);
@@ -81,9 +74,7 @@ public class CalculateBolt implements IBasicBolt{
 						oneTrace.setConpleted(true);
 						computeTime(oneTrace);
 						collector.emit(new Values(oneTrace));
-						
 						backup.remove(trace_id);
-						LOG.info("calculate & emit done ");
 					}
 				}
 			} else {
@@ -102,31 +93,15 @@ public class CalculateBolt implements IBasicBolt{
 	
 	private void computeTime(OneTrace trace){
 		List<OneCall> callList = trace.getCallList();
-//		if(containError(callList)){
-//			return ;
-//		}
 		int handle_time = 0;
 		int transport_time = 0;
 		for(int i=0, j=1; j < callList.size(); i++, j++){
-//			if(i % 2 == 0) transport_time += compute(callList, i, j);
-//			else handle_time += compute(callList, i, j);
 			if(i % 2 ==0) transport_time += callList.get(j).getCur_time() - callList.get(i).getCur_time();
 			else handle_time += callList.get(j).getCur_time() - callList.get(i).getCur_time();
 		}
 		trace.setHandle_time(handle_time);
 		trace.settransport_time(transport_time);
 		trace.setTotal_time(handle_time+transport_time);
-	}
-	
-	private int compute(List<OneCall> list, int i, int j){
-		long t1=0,t2=0;
-		for(int x=0;x<list.size();x++){
-			if(list.get(x).getCall_id() == i)
-				t1 = list.get(x).getCur_time();
-			else if(list.get(x).getCall_id() == j)
-				t2 = list.get(x).getCur_time();
-		}
-		return (int) (t2-t1);
 	}
 	
 	public boolean completed(OneTrace oneTrace, int listLen, int setLen){

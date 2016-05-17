@@ -1,17 +1,13 @@
 package org.rpc.storm.spout;
 
-import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -22,8 +18,8 @@ import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.topology.base.BaseRichSpout;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Values;
-import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.rpc.constants.Constants;
@@ -38,13 +34,11 @@ public class DataSpout extends BaseRichSpout {
 
 	private SpoutOutputCollector collector;
 
-	private OutputStream outputStream;
-
 	private BufferedReader reader;
 
 	private List<Integer> calculateBoltTasks = null;
 
-	private long startTime = 0;
+	private HashSet<String> alreadyRead;
 
 	public void nextTuple() {
 		readAndEmit();
@@ -53,11 +47,12 @@ public class DataSpout extends BaseRichSpout {
 	public void open(Map arg0, TopologyContext context, SpoutOutputCollector collector) {
 		this.collector = collector;
 		calculateBoltTasks = context.getComponentTasks(Constants.CalculateBolt_ID);
+		LOG.info("calculateBoltTasks : "+calculateBoltTasks.get(0)+"  "+calculateBoltTasks.get(1));
 		if (calculateBoltTasks.size() != 2) {
 			LOG.error("calculateBoltTasks size wrong");
 			return;
 		}
-		startTime = new Date().getTime() - Constants.ONE_HALF_MIN;
+		alreadyRead = new HashSet<String>();
 		try {
 			getReader();
 		} catch (IOException e) {
@@ -76,20 +71,27 @@ public class DataSpout extends BaseRichSpout {
 			if (reader != null && (str = reader.readLine()) != null) {
 				try {
 					call = ConvertUtil.convertToCall(str);
-					if (call.getTrace_id() < 5000)
+					if (call.getTrace_id() < 100) {
 						collector.emitDirect(calculateBoltTasks.get(0), new Values(call));
-					else
+					} else {
 						collector.emitDirect(calculateBoltTasks.get(1), new Values(call));
-					LOG.info("spout emit done");
-					System.out.println(call);
+					}
+						
 				} catch (InterruptedException e) {/* ignore */
 				} catch (Exception e) {
 					LOG.error("The number of arguments wrong");
 				}
 			} else {
+				reader = null;
 				getReader();
 				if (reader != null) {
 					readAndEmit();
+				} else {
+					try {
+						Thread.sleep(1000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
 				}
 				LOG.error("reader is null");
 			}
@@ -100,29 +102,23 @@ public class DataSpout extends BaseRichSpout {
 
 	public void getReader() throws IOException {
 		FileSystem fileSystem;
-		while (true) {
-			startTime++;
-
-			SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-			Date date = new Date();
-			String dir = sdf.format(date);
-			String fileURI = Constants.DATA_ADDRESS + dir + "/";
-			Configuration configuration = new Configuration();
-			configuration.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
-			fileSystem = FileSystem.get(URI.create(fileURI), configuration);
-			//Path filePath = new Path(fileURI+Constants.FILE_PREFIX + startTime);
-			Path filePath = new Path(fileURI+"data.1462615838014");
-			if (!fileSystem.exists(filePath)) {
-				LOG.error(filePath.getName()+" not exist");
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+		Date date = new Date();
+		String dir = sdf.format(date);
+		String fileURI = Constants.DATA_ADDRESS + dir + "/";
+		Configuration configuration = new Configuration();
+		configuration.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
+		fileSystem = FileSystem.get(URI.create(fileURI), configuration);
+		FileStatus files[] = fileSystem.listStatus(new Path(fileURI));
+		for(FileStatus file : files) {
+			if(alreadyRead.contains(file.getPath().toString()))
 				continue;
-			} else {
-				LOG.info(filePath.getName()+"  exist");
-				InputStream inputStream = null;
-				inputStream = fileSystem.open(filePath);
-				outputStream = new BufferedOutputStream(new FileOutputStream(new File("/home/ecust/log.txt")));
-				IOUtils.copy(inputStream, outputStream);
+			else {
+				alreadyRead.add(file.getPath().toString());
+				LOG.info("The path of this file : "+file.getPath().toString());
+				InputStream inputStream = fileSystem.open(file.getPath());
 				reader = new BufferedReader(
-						new InputStreamReader(new FileInputStream(new File("/home/ecust/log.txt")), Constants.UTF_8));
+						new InputStreamReader(inputStream, Constants.UTF_8));
 				return;
 			}
 		}
