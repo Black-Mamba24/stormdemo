@@ -71,7 +71,7 @@ public class DataSpout extends BaseRichSpout {
 			if (reader != null && (str = reader.readLine()) != null) {
 				try {
 					call = ConvertUtil.convertToCall(str);
-					if (call.getTrace_id() < 100) {
+					if (call.getTrace_id() < 2500) {
 						collector.emitDirect(calculateBoltTasks.get(0), new Values(call));
 					} else {
 						collector.emitDirect(calculateBoltTasks.get(1), new Values(call));

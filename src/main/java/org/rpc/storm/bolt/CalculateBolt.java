@@ -1,11 +1,18 @@
 package org.rpc.storm.bolt;
 
+import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import backtype.storm.task.TopologyContext;
@@ -28,6 +35,10 @@ public class CalculateBolt implements IBasicBolt{
 	private LinkedHashMap<Integer, OneTrace> current;
 	
 	private LinkedHashMap<Integer, WeakReference<OneTrace>> backup;
+	
+	private ReferenceQueue referenceQueue;
+	
+	private WeakReference wr;
 
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
 		declarer.declare(new Fields(Constants.CALCULATE_FIELD));
@@ -35,16 +46,43 @@ public class CalculateBolt implements IBasicBolt{
 
 	public void prepare(Map arg0, TopologyContext context) {
 		backup = new LinkedHashMap<Integer, WeakReference<OneTrace>>();
+		referenceQueue = new ReferenceQueue();
 		current = new LinkedHashMap<Integer, OneTrace>(Constants.CURRENT_LEN){
 			@Override
 			protected boolean removeEldestEntry(java.util.Map.Entry<Integer, OneTrace> eldest) {
 				if (size() > Constants.CURRENT_LEN * 5 / 6) {
-					backup.put(eldest.getKey(), new WeakReference<OneTrace>(eldest.getValue()));
+					backup.put(eldest.getKey(), new WeakReference(eldest.getValue(), referenceQueue));
+					remove(eldest);
 					return true;
 				}
 				return false;
 			}
 		};
+		//定时任务，每隔一秒检查一次被淘汰数据
+		TimerTask timerTask = new TimerTask() {
+			@Override
+			public void run() {
+				wr = (WeakReference) referenceQueue.poll();
+				if(wr != null) {
+					LOG.info("reference gc : "+wr.toString());
+				} else {
+					LOG.info("no reference gc");
+				}
+			}
+		};
+		Timer timer = new Timer();
+		long delay = 1000;
+		long inteval = 5000;
+		timer.scheduleAtFixedRate(timerTask, delay, inteval);
+		/*另一种定时任务写法
+		 * Runnable runnable = new Runnable() {
+			public void run() {
+				LOG.info("referenceQueue poll() : "+referenceQueue.poll().toString());
+			}
+		};
+		ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
+		service.scheduleAtFixedRate(runnable, 1000, 1, TimeUnit.SECONDS);
+		*/
 	}
 
 	public void execute(Tuple tuple, BasicOutputCollector collector) {
@@ -95,9 +133,9 @@ public class CalculateBolt implements IBasicBolt{
 		List<OneCall> callList = trace.getCallList();
 		int handle_time = 0;
 		int transport_time = 0;
-		for(int i=0, j=1; j < callList.size(); i++, j++){
-			if(i % 2 ==0) transport_time += callList.get(j).getCur_time() - callList.get(i).getCur_time();
-			else handle_time += callList.get(j).getCur_time() - callList.get(i).getCur_time();
+		for(int i=0; i+1 < callList.size(); i++){
+			if(i % 2 == 0) transport_time += callList.get(i+1).getCur_time() - callList.get(i).getCur_time();
+			else handle_time += callList.get(i+1).getCur_time() - callList.get(i).getCur_time();
 		}
 		trace.setHandle_time(handle_time);
 		trace.settransport_time(transport_time);

@@ -20,8 +20,8 @@ public class OneTrace implements Serializable{
 	// public Map<String, String> services = new HashMap<String, String>();
 	public Set<String> apps = new HashSet<String>();
 	public Set<String> services = new HashSet<String>();
-	public int handle_time;
 	public List<OneCall> callList = new ArrayList<OneCall>();
+	public int handle_time;
 	public int transport_time;
 	public int total_time;
 	public long baseTime;

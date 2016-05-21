@@ -21,7 +21,7 @@ public class Constants {
 	public static String Spout_ID = "DataSpout_ID";
 	public static String CalculateBolt_ID = "CalculateBolt_ID";
 	public static String StoreBolt_ID = "StoreBolt_ID";
-	public static int CURRENT_LEN = 1000;
+	public static int CURRENT_LEN = 4000;
 	public static int TWO_HOUR = 2*60*60*1000;
 	public static int HALF_HOUR = 30*60*1000;
 	public static int TEN_MIN = 10*60*1000;
