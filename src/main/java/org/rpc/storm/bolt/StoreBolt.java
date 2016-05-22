@@ -27,6 +27,8 @@ public class StoreBolt implements IBasicBolt{
 	private PreparedStatement statement = null;
 	
 	private String sql = "INSERT INTO RPC_DATA (trace_id,handle_time,transport_time,total_time,create_time) VALUES (?,?,?,?,?)";
+	
+	private int count = 0;
 
 	public void execute(Tuple tuple, BasicOutputCollector collector) {
 		OneTrace oneTrace = (OneTrace)tuple.getValueByField(Constants.CALCULATE_FIELD);
@@ -38,11 +40,19 @@ public class StoreBolt implements IBasicBolt{
 				statement.setInt(3, oneTrace.gettransport_time());
 				statement.setInt(4, oneTrace.getTotal_time());
 				statement.setLong(5, System.currentTimeMillis());
-				int result = statement.executeUpdate();
-				if(result == 0) {
-					LOG.error("didn't insert into DB");
-				} else {
-					LOG.info("insert success");
+				statement.addBatch();
+				count++;
+				if(count == 5) {
+					int [] results = statement.executeBatch();
+					for(int result : results) {
+						if(result == 0) {
+							LOG.error("didn't insert into DB");
+							System.exit(0);
+						} else {
+							LOG.info("insert success");
+						}
+					}
+					count=0;
 				}
 			} catch (SQLTimeoutException e) {
 				LOG.error("Sql execute timeout");
