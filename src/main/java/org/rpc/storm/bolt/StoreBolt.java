@@ -40,6 +40,7 @@ public class StoreBolt implements IBasicBolt{
 				statement.setInt(3, oneTrace.gettransport_time());
 				statement.setInt(4, oneTrace.getTotal_time());
 				statement.setLong(5, System.currentTimeMillis());
+				//批量插入
 				statement.addBatch();
 				count++;
 				if(count == 5) {

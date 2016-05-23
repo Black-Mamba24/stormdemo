@@ -44,8 +44,9 @@ public class DataSpout extends BaseRichSpout {
 		readAndEmit();
 	}
 
-	public void open(Map arg0, TopologyContext context, SpoutOutputCollector collector) {
+	public void open(Map arg0, TopologyContext context, SpoutOutputCollector collector) {//变量初始化
 		this.collector = collector;
+		//获取下游CalculateBolt_ID的任务列表，为了实现直接发射
 		calculateBoltTasks = context.getComponentTasks(Constants.CalculateBolt_ID);
 		LOG.info("calculateBoltTasks : "+calculateBoltTasks.get(0)+"  "+calculateBoltTasks.get(1));
 		if (calculateBoltTasks.size() != 2) {
@@ -71,12 +72,12 @@ public class DataSpout extends BaseRichSpout {
 			if (reader != null && (str = reader.readLine()) != null) {
 				try {
 					call = ConvertUtil.convertToCall(str);
+					//按trace得返回发送到不同计算Bolt
 					if (call.getTrace_id() < 2500) {
 						collector.emitDirect(calculateBoltTasks.get(0), new Values(call));
 					} else {
 						collector.emitDirect(calculateBoltTasks.get(1), new Values(call));
 					}
-						
 				} catch (InterruptedException e) {/* ignore */
 				} catch (Exception e) {
 					LOG.error("The number of arguments wrong");
@@ -102,6 +103,7 @@ public class DataSpout extends BaseRichSpout {
 
 	public void getReader() throws IOException {
 		FileSystem fileSystem;
+		//创建文件路径
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 		Date date = new Date();
 		String dir = sdf.format(date);
@@ -109,13 +111,16 @@ public class DataSpout extends BaseRichSpout {
 		Configuration configuration = new Configuration();
 		configuration.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
 		fileSystem = FileSystem.get(URI.create(fileURI), configuration);
+		//获取目录下所有文件列表
 		FileStatus files[] = fileSystem.listStatus(new Path(fileURI));
 		for(FileStatus file : files) {
+			//重复判断
 			if(alreadyRead.contains(file.getPath().toString()))
 				continue;
 			else {
 				alreadyRead.add(file.getPath().toString());
 				LOG.info("The path of this file : "+file.getPath().toString());
+				//获取文件的数据流
 				InputStream inputStream = fileSystem.open(file.getPath());
 				reader = new BufferedReader(
 						new InputStreamReader(inputStream, Constants.UTF_8));

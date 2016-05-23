@@ -45,11 +45,13 @@ public class CalculateBolt implements IBasicBolt{
 	}
 
 	public void prepare(Map arg0, TopologyContext context) {
+		//backup存放被淘汰的数据，使用弱引用，current存放当前数据
 		backup = new LinkedHashMap<Integer, WeakReference<OneTrace>>();
 		referenceQueue = new ReferenceQueue();
 		current = new LinkedHashMap<Integer, OneTrace>(Constants.CURRENT_LEN){
 			@Override
 			protected boolean removeEldestEntry(java.util.Map.Entry<Integer, OneTrace> eldest) {
+				//实现淘汰策略
 				if (size() > Constants.CURRENT_LEN * 5 / 6) {
 					backup.put(eldest.getKey(), new WeakReference(eldest.getValue(), referenceQueue));
 					remove(eldest);
@@ -130,6 +132,7 @@ public class CalculateBolt implements IBasicBolt{
 	}
 	
 	private void computeTime(OneTrace trace){
+		//计算三个延时
 		List<OneCall> callList = trace.getCallList();
 		int handle_time = 0;
 		int transport_time = 0;
@@ -143,6 +146,7 @@ public class CalculateBolt implements IBasicBolt{
 	}
 	
 	public boolean completed(OneTrace oneTrace, int listLen, int setLen){
+		//完整性检测，Trace是否已经完整
 		if(setLen <= 1) {
 			return false;
 		}
