@@ -10,13 +10,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.BasicOutputCollector;
-import backtype.storm.topology.IBasicBolt;
 import backtype.storm.topology.OutputFieldsDeclarer;
+import backtype.storm.topology.base.BaseBasicBolt;
 import backtype.storm.tuple.Tuple;
 import org.rpc.constants.Constants;
 import org.rpc.object.OneTrace;
 
-public class StoreBolt implements IBasicBolt{
+public class StoreBolt extends BaseBasicBolt{
 
 	private static final long serialVersionUID = -4857164080831287407L;
 	
@@ -43,7 +43,7 @@ public class StoreBolt implements IBasicBolt{
 				//批量插入
 				statement.addBatch();
 				count++;
-				if(count == 5) {
+				if(count == 2) {
 					int [] results = statement.executeBatch();
 					for(int result : results) {
 						if(result == 0) {

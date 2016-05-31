@@ -9,16 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.BasicOutputCollector;
-import backtype.storm.topology.IBasicBolt;
 import backtype.storm.topology.OutputFieldsDeclarer;
+import backtype.storm.topology.base.BaseBasicBolt;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
@@ -26,7 +22,7 @@ import org.rpc.constants.Constants;
 import org.rpc.object.OneCall;
 import org.rpc.object.OneTrace;
 
-public class CalculateBolt implements IBasicBolt{
+public class CalculateBolt extends BaseBasicBolt{
 
 	private static final long serialVersionUID = -3929838799766274573L;
 	
@@ -43,7 +39,7 @@ public class CalculateBolt implements IBasicBolt{
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
 		declarer.declare(new Fields(Constants.CALCULATE_FIELD));
 	}
-
+	@Override
 	public void prepare(Map arg0, TopologyContext context) {
 		//backup存放被淘汰的数据，使用弱引用，current存放当前数据
 		backup = new LinkedHashMap<Integer, WeakReference<OneTrace>>();
@@ -113,7 +109,7 @@ public class CalculateBolt implements IBasicBolt{
 					if(completed(oneTrace, oneTrace.getCallList().size(), oneTrace.getApp_num())){
 						oneTrace.setConpleted(true);
 						computeTime(oneTrace);
-						collector.emit(new Values(oneTrace));
+						collector.emit( new Values(oneTrace));
 						backup.remove(trace_id);
 					}
 				}
@@ -163,7 +159,7 @@ public class CalculateBolt implements IBasicBolt{
 			return true;
 		}
 	}
-	
+	@Override
 	public void cleanup() {}
 
 	public Map<String, Object> getComponentConfiguration() {

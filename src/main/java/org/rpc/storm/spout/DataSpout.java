@@ -64,6 +64,14 @@ public class DataSpout extends BaseRichSpout {
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
 		declarer.declare(true, new Fields(Constants.SPOUT_FIELD));
 	}
+	
+	public void ack(Object msgId) {
+		LOG.info(msgId + " success");
+	}
+	
+	public void fail(Object msgId) {
+		LOG.error(msgId + " fail");
+	}
 
 	public void readAndEmit() {
 		String str;
@@ -88,13 +96,8 @@ public class DataSpout extends BaseRichSpout {
 				if (reader != null) {
 					readAndEmit();
 				} else {
-					try {
-						Thread.sleep(1000);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
+					return ;
 				}
-				LOG.error("reader is null");
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
